@@ -403,7 +403,13 @@ func (h *IncomingWebhookHandler) GenerateToken(c *gin.Context) {
 		input.Name = "API Token"
 	}
 
-	userUUID := userID.(uuid.UUID)
+	// UserID from middleware is string
+	userUUIDStr := userID.(string)
+	userUUID, err := uuid.Parse(userUUIDStr)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid user ID"})
+		return
+	}
 	accessToken := models.AccessToken{
 		OwnerID:   userUUID,
 		OwnerType: "User",

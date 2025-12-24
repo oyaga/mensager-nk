@@ -179,7 +179,12 @@ func (h *AuthHandler) Register(c *gin.Context) {
 
 // GetProfile returns the current user's profile
 func (h *AuthHandler) GetProfile(c *gin.Context) {
-	userID := c.MustGet("user_id").(uuid.UUID)
+	userIDStr := c.MustGet("user_id").(string)
+	userID, err := uuid.Parse(userIDStr)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid user ID in context"})
+		return
+	}
 
 	var user models.User
 	if err := h.db.Preload("Accounts").First(&user, userID).Error; err != nil {
@@ -230,7 +235,12 @@ func (h *AuthHandler) GetProfile(c *gin.Context) {
 
 // UpdateProfile updates the current user's profile
 func (h *AuthHandler) UpdateProfile(c *gin.Context) {
-	userID := c.MustGet("user_id").(uuid.UUID)
+	userIDStr := c.MustGet("user_id").(string)
+	userID, err := uuid.Parse(userIDStr)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid user ID"})
+		return
+	}
 
 	var req struct {
 		Name        string         `json:"name"`
@@ -303,7 +313,15 @@ func (h *AuthHandler) UpdateProfile(c *gin.Context) {
 
 // ResetAccessToken generates a new access token for the user
 func (h *AuthHandler) ResetAccessToken(c *gin.Context) {
-	userID := c.MustGet("user_id").(uuid.UUID)
+	// We need the account ID to verify permission if needed, but for now user rotates their own token
+	// accountIDStr := c.MustGet("account_id").(string)
+
+	userIDStr := c.MustGet("user_id").(string)
+	userID, err := uuid.Parse(userIDStr)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid user ID"})
+		return
+	}
 	newToken := uuid.New().String()
 
 	if err := h.db.Model(&models.User{}).Where("id = ?", userID).Update("access_token", newToken).Error; err != nil {
@@ -316,7 +334,12 @@ func (h *AuthHandler) ResetAccessToken(c *gin.Context) {
 
 // ChangePassword changes the user's password
 func (h *AuthHandler) ChangePassword(c *gin.Context) {
-	userID := c.MustGet("user_id").(uuid.UUID)
+	userIDStr := c.MustGet("user_id").(string)
+	userID, err := uuid.Parse(userIDStr)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid user ID"})
+		return
+	}
 
 	var req struct {
 		CurrentPassword string `json:"current_password" binding:"required"`
@@ -358,7 +381,12 @@ func (h *AuthHandler) ChangePassword(c *gin.Context) {
 
 // UpdateAvailability updates user's availability status
 func (h *AuthHandler) UpdateAvailability(c *gin.Context) {
-	userID := c.MustGet("user_id").(uuid.UUID)
+	userIDStr := c.MustGet("user_id").(string)
+	userID, err := uuid.Parse(userIDStr)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid user ID"})
+		return
+	}
 
 	var req struct {
 		Availability string `json:"availability" binding:"required,oneof=online busy offline"`

@@ -50,7 +50,12 @@ func (h *AccountHandler) RemoveUser(c *gin.Context) {
 }
 
 func (h *AccountHandler) GetStats(c *gin.Context) {
-	accountID := c.MustGet("account_id").(uuid.UUID)
+	accountIDStr := c.MustGet("account_id").(string)
+	accountID, err := uuid.Parse(accountIDStr)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid account ID"})
+		return
+	}
 
 	var stats struct {
 		TotalConversations int64 `json:"total_conversations"`
