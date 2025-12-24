@@ -1,0 +1,32 @@
+# Git
+.git
+.gitignore
+
+# Dependencies (will be installed fresh in Docker)
+frontend/node_modules
+backend/vendor
+
+# Build outputs (will be created in Docker)
+backend/main
+
+# IDE and OS files
+.vscode
+.idea
+*.swp
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Environment files (don't include secrets in image)
+.env
+.env.local
+.env.*.local
+
+# Docker compose files
+docker-compose*.yml
+
+# Misc
+.air.toml

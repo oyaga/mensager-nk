@@ -1,0 +1,38 @@
+# Git
+.git
+.gitignore
+
+# Env files
+.env
+.env.*
+!.env.example
+
+# Development
+*.log
+*.swp
+*.swo
+*~
+
+# Build artifacts
+message-service
+*.exe
+
+# Documentation
+README.md
+LICENSE
+
+# IDE
+.vscode
+.idea
+*.iml
+
+# Dependencies (serão baixadas no build)
+vendor/
+
+# Test files
+*_test.go
+testdata/
+
+# CI/CD
+.github
+.gitlab-ci.yml

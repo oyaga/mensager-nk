@@ -1,0 +1,39 @@
+version: '3.9'
+
+services:
+  message-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      # Para usar Alpine (com shell): adicionar --target runtime-alpine
+    image: message-service:latest
+    container_name: message-service
+    ports:
+      - "3001:3001"
+    environment:
+      # Supabase Connection
+      SUPABASE_DB_URL: ${SUPABASE_DB_URL}
+      SUPABASE_KEY: ${SUPABASE_KEY}
+
+      # Server Config
+      PORT: 3001
+      GO_ENV: production
+
+      # Database Pool
+      DB_MAX_CONNS: 20
+      DB_MIN_CONNS: 5
+      DB_MAX_CONN_LIFETIME: 1h
+      DB_MAX_CONN_IDLE_TIME: 30m
+    restart: unless-stopped
+    networks:
+      - chatwoot-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+networks:
+  chatwoot-network:
+    driver: bridge
