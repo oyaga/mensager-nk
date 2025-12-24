@@ -11,17 +11,22 @@ services:
     networks:
       - AikaNet
     environment:
-      # Conexão DB (Interna nesta stack - Novo Postgres) - Formato DSN para evitar erros de parsing
-      - DATABASE_URL=host=chatwoot-go-postgres user=chatwoot password=chatwoot123 dbname=chatwoot_go port=5432 sslmode=disable TimeZone=America/Sao_Paulo
+      # Conexão DB: Apontando para o NOME DO SERVIÇO 'chatwoot-db'
+      - DATABASE_URL=host=chatwoot-db user=chatwoot password=chatwoot123 dbname=chatwoot_go port=5432 sslmode=disable TimeZone=America/Sao_Paulo
 
-      # Conexão Redis (Interna nesta stack - Novo Redis)
-      - REDIS_URL=redis://chatwoot-go-redis:6379
+      # Conexão Redis: Apontando para o NOME DO SERVIÇO 'chatwoot-cache'
+      - REDIS_URL=redis://chatwoot-cache:6379
 
-      # Conexão MinIO (Usa o serviço 'minio' que JÁ ESTÁ RODANDO na rede AikaNet)
+      # Conexão MinIO: Tentando conectar no serviço 'minio' da rede AikaNet
+      # Se falhar, verifique se o nome do serviço na stack antiga é 'minio'
       - MINIO_ENDPOINT=minio:9000
       - MINIO_ACCESS_KEY=AikaDesign
       - MINIO_SECRET_KEY=@AikaNakamura_Minio_329263
       - MINIO_USE_SSL=false
+
+      # Buckets Customizados
+      - MINIO_BUCKET_AVATARS=chatwoot-go-avatars
+      - MINIO_BUCKET_ATTACHMENTS=chatwoot-go-attachments
 
       # Configurações Gerais
       - FRONTEND_URL=https://ct.aikanakamura.com
@@ -35,31 +40,25 @@ services:
         constraints:
           - node.role == manager
       labels:
-        # Habilitar Traefik
         - "traefik.enable=true"
-
-        # Router HTTPS (ct.aikanakamura.com)
         - "traefik.http.routers.chatwoot_go.rule=Host(`ct.aikanakamura.com`)"
         - "traefik.http.routers.chatwoot_go.entrypoints=websecure"
         - "traefik.http.routers.chatwoot_go.tls.certresolver=letsencryptresolver"
         - "traefik.http.routers.chatwoot_go.service=chatwoot_go"
-
-        # Apontamento para porta interna 8080
         - "traefik.http.services.chatwoot_go.loadbalancer.server.port=8080"
         - "traefik.http.services.chatwoot_go.loadbalancer.passHostHeader=true"
 
     depends_on:
-      - postgres
-      - redis
+      - chatwoot-db
+      - chatwoot-cache
 
   # ==========================================
-  # PostgreSQL (Dedicado para Chatwoot-Go)
+  # PostgreSQL (Nome do Serviço Único)
   # ==========================================
-  postgres:
+  chatwoot-db:
     image: postgres:16-alpine
-    container_name: chatwoot-go-postgres
+    container_name: chatwoot-go-postgres-container
     restart: unless-stopped
-    # Namespace removido para compatibilidade
     environment:
       - POSTGRES_USER=chatwoot
       - POSTGRES_PASSWORD=chatwoot123
@@ -74,11 +73,11 @@ services:
           - node.role == manager
 
   # ==========================================
-  # Redis (Dedicado para Chatwoot-Go)
+  # Redis (Nome do Serviço Único)
   # ==========================================
-  redis:
+  chatwoot-cache:
     image: redis:7-alpine
-    container_name: chatwoot-go-redis
+    container_name: chatwoot-go-redis-container
     restart: unless-stopped
     volumes:
       - chatwoot_go_redis_data:/data
@@ -90,7 +89,7 @@ services:
           - node.role == manager
 
   # ==========================================
-  # Setup Buckets (No MinIO Existente)
+  # Setup Buckets
   # ==========================================
   createbuckets:
     image: minio/mc
@@ -116,9 +115,6 @@ services:
       restart_policy:
         condition: on-failure
 
-# ==========================================
-# Network & Volumes
-# ==========================================
 networks:
   AikaNet:
     external: true
