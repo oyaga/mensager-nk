@@ -11,8 +11,8 @@ services:
     networks:
       - AikaNet
     environment:
-      # Conexão DB (Interna nesta stack - Novo Postgres)
-      - DATABASE_URL=postgres://chatwoot:chatwoot123@chatwoot-go-postgres:5432/chatwoot_go?sslmode=disable
+      # Conexão DB (Interna nesta stack - Novo Postgres) - Formato DSN para evitar erros de parsing
+      - DATABASE_URL=host=chatwoot-go-postgres user=chatwoot password=chatwoot123 dbname=chatwoot_go port=5432 sslmode=disable TimeZone=America/Sao_Paulo
 
       # Conexão Redis (Interna nesta stack - Novo Redis)
       - REDIS_URL=redis://chatwoot-go-redis:6379
@@ -102,12 +102,12 @@ services:
       until /usr/bin/mc config host add myminio http://minio:9000 AikaDesign @AikaNakamura_Minio_329263; do echo '...waiting for minio...'; sleep 3; done;
 
       echo 'Creating buckets for Chatwoot-Go...';
-      /usr/bin/mc mb -p myminio/avatars;
-      /usr/bin/mc mb -p myminio/attachments;
+      /usr/bin/mc mb -p myminio/chatwoot-go-avatars;
+      /usr/bin/mc mb -p myminio/chatwoot-go-attachments;
 
       echo 'Setting public policies...';
-      /usr/bin/mc anonymous set public myminio/avatars;
-      /usr/bin/mc anonymous set public myminio/attachments;
+      /usr/bin/mc anonymous set public myminio/chatwoot-go-avatars;
+      /usr/bin/mc anonymous set public myminio/chatwoot-go-attachments;
 
       echo 'Buckets Configured Successfully';
       exit 0;
