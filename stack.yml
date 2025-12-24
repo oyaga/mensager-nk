@@ -1,0 +1,106 @@
+version: "3.8"
+
+services:
+  # Aplicação Principal (Backend + Frontend Estático)
+  app:
+    image: oyaga/chatwoot-go:latest
+    container_name: chatwoot-app
+    restart: unless-stopped
+    ports:
+      # Porta externa : Porta interna
+      - "8080:8080"
+    environment:
+      # Conexão com Banco de Dados
+      - DATABASE_URL=postgres://chatwoot:chatwoot123@postgres:5432/chatwoot_go?sslmode=disable
+
+      # Conexão com Redis
+      - REDIS_URL=redis://redis:6379
+
+      # Configuração MinIO (Storage)
+      - MINIO_ENDPOINT=minio:9000
+      - MINIO_ACCESS_KEY=minioadmin
+      - MINIO_SECRET_KEY=minioadmin123
+      - MINIO_USE_SSL=false
+
+      # Segurança (ALTERE ISSO NA VPS)
+      - JWT_SECRET=change_this_to_a_secure_random_string_in_production
+
+      # URL Pública (Importante para CORS e Links)
+      # Altere para seu domínio ou IP da VPS
+      - FRONTEND_URL=http://localhost:8080
+    networks:
+      - chatwoot-network
+    depends_on:
+      - postgres
+      - redis
+      - minio
+
+  # Banco de Dados PostgreSQL
+  postgres:
+    image: postgres:16-alpine
+    container_name: chatwoot-postgres
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=chatwoot
+      - POSTGRES_PASSWORD=chatwoot123
+      - POSTGRES_DB=chatwoot_go
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - chatwoot-network
+
+  # Redis para Cache e Pub/Sub WebSocket
+  redis:
+    image: redis:7-alpine
+    container_name: chatwoot-redis
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    networks:
+      - chatwoot-network
+
+  # MinIO Object Storage (S3 Compatible)
+  minio:
+    image: minio/minio:latest
+    container_name: chatwoot-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      - MINIO_ROOT_USER=minioadmin
+      - MINIO_ROOT_PASSWORD=minioadmin123
+    ports:
+      # API S3
+      - "9000:9000"
+      # Console Web do MinIO
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    networks:
+      - chatwoot-network
+
+  # Job Utilitário para criar buckets automaticamente ao iniciar
+  createbuckets:
+    image: minio/mc
+    depends_on:
+      - minio
+    entrypoint: >
+      /bin/sh -c "
+      until /usr/bin/mc config host add myminio http://minio:9000 minioadmin minioadmin123; do echo '...waiting for minio...'; sleep 1; done;
+      /usr/bin/mc mb -p myminio/avatars;
+      /usr/bin/mc mb -p myminio/attachments;
+      /usr/bin/mc anonymous set public myminio/avatars;
+      /usr/bin/mc anonymous set public myminio/attachments;
+      echo 'Buckets created and configured.';
+      exit 0;
+      "
+    networks:
+      - chatwoot-network
+
+networks:
+  chatwoot-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
+  minio_data:
