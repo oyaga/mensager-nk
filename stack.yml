@@ -24,7 +24,7 @@ services:
       - MINIO_USE_SSL=false
 
       # Configurações Gerais
-      - FRONTEND_URL=https://msn.aikanakamura.com
+      - FRONTEND_URL=https://ct.aikanakamura.com
       - JWT_SECRET=c5f444c7b6fa1ec3b1bcfd1949c67170
       - GIN_MODE=release
 
@@ -38,8 +38,8 @@ services:
         # Habilitar Traefik
         - "traefik.enable=true"
 
-        # Router HTTPS (msn.aikanakamura.com)
-        - "traefik.http.routers.chatwoot_go.rule=Host(`msn.aikanakamura.com`)"
+        # Router HTTPS (ct.aikanakamura.com)
+        - "traefik.http.routers.chatwoot_go.rule=Host(`ct.aikanakamura.com`)"
         - "traefik.http.routers.chatwoot_go.entrypoints=websecure"
         - "traefik.http.routers.chatwoot_go.tls.certresolver=letsencryptresolver"
         - "traefik.http.routers.chatwoot_go.service=chatwoot_go"
