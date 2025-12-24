@@ -1,84 +1,119 @@
-version: "3.8"
+version: "3.7"
 
 services:
-  # Aplicação Principal (Backend + Frontend Estático)
+  # ==========================================
+  # Chatwoot-Go Application
+  # ==========================================
   app:
     image: oyaga/chatwoot-go:latest
-    container_name: chatwoot-app
+    container_name: chatwoot-go-app
     restart: unless-stopped
-    ports:
-      # Porta externa : Porta interna
-      - "8080:8080"
+    networks:
+      - AikaNet
     environment:
-      # Conexão com Banco de Dados
-      - DATABASE_URL=postgres://chatwoot:chatwoot123@postgres:5432/chatwoot_go?sslmode=disable
+      # Conexão DB (Interna na stack)
+      - DATABASE_URL=postgres://chatwoot:chatwoot123@chatwoot-go-postgres:5432/chatwoot_go?sslmode=disable
 
-      # Conexão com Redis
-      - REDIS_URL=redis://redis:6379
+      # Conexão Redis (Interna na stack)
+      - REDIS_URL=redis://chatwoot-go-redis:6379
 
-      # Configuração MinIO (Storage)
-      - MINIO_ENDPOINT=minio:9000
+      # Conexão MinIO (Storage)
+      - MINIO_ENDPOINT=chatwoot-go-minio:9000
       - MINIO_ACCESS_KEY=minioadmin
       - MINIO_SECRET_KEY=minioadmin123
       - MINIO_USE_SSL=false
 
-      # Segurança (ALTERE ISSO NA VPS)
-      - JWT_SECRET=change_this_to_a_secure_random_string_in_production
+      # Configurações Gerais
+      - FRONTEND_URL=https://msn.aikanakamura.com
+      - JWT_SECRET=c5f444c7b6fa1ec3b1bcfd1949c67170
+      - GIN_MODE=release
 
-      # URL Pública (Importante para CORS e Links)
-      # Altere para seu domínio ou IP da VPS
-      - FRONTEND_URL=http://localhost:8080
-    networks:
-      - chatwoot-network
-    depends_on:
-      - postgres
-      - redis
-      - minio
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+      labels:
+        # Habilitar Traefik
+        - "traefik.enable=true"
 
-  # Banco de Dados PostgreSQL
+        # Router HTTPS (msn.aikanakamura.com)
+        - "traefik.http.routers.chatwoot_go.rule=Host(`msn.aikanakamura.com`)"
+        - "traefik.http.routers.chatwoot_go.entrypoints=websecure"
+        - "traefik.http.routers.chatwoot_go.tls.certresolver=letsencryptresolver"
+        - "traefik.http.routers.chatwoot_go.service=chatwoot_go"
+
+        # Apontamento para porta interna 8080
+        - "traefik.http.services.chatwoot_go.loadbalancer.server.port=8080"
+        - "traefik.http.services.chatwoot_go.loadbalancer.passHostHeader=true"
+
+  # ==========================================
+  # PostgreSQL (Dedicado para Chatwoot-Go)
+  # ==========================================
   postgres:
     image: postgres:16-alpine
-    container_name: chatwoot-postgres
+    container_name: chatwoot-go-postgres
     restart: unless-stopped
+    namespace: chatwoot_go # Isolamento
     environment:
       - POSTGRES_USER=chatwoot
       - POSTGRES_PASSWORD=chatwoot123
       - POSTGRES_DB=chatwoot_go
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - chatwoot_go_postgres_data:/var/lib/postgresql/data
     networks:
-      - chatwoot-network
+      - AikaNet
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
 
-  # Redis para Cache e Pub/Sub WebSocket
+  # ==========================================
+  # Redis
+  # ==========================================
   redis:
     image: redis:7-alpine
-    container_name: chatwoot-redis
+    container_name: chatwoot-go-redis
     restart: unless-stopped
     volumes:
-      - redis_data:/data
+      - chatwoot_go_redis_data:/data
     networks:
-      - chatwoot-network
+      - AikaNet
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
 
-  # MinIO Object Storage (S3 Compatible)
+  # ==========================================
+  # MinIO (Object Storage)
+  # ==========================================
   minio:
     image: minio/minio:latest
-    container_name: chatwoot-minio
+    container_name: chatwoot-go-minio
     restart: unless-stopped
     command: server /data --console-address ":9001"
     environment:
       - MINIO_ROOT_USER=minioadmin
       - MINIO_ROOT_PASSWORD=minioadmin123
-    ports:
-      # API S3
-      - "9000:9000"
-      # Console Web do MinIO
-      - "9001:9001"
     volumes:
-      - minio_data:/data
+      - chatwoot_go_minio_data:/data
     networks:
-      - chatwoot-network
+      - AikaNet
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
+      # Nota: Para acessar arquivos publicamente, idealmente você configuraria outro subdomínio
+      # ex: files.aikanakamura.com apontando para este container porta 9000
+      # labels:
+      #   - "traefik.enable=true"
+      #   - "traefik.http.routers.chatwoot_go_minio.rule=Host(`files.aikanakamura.com`)"
+      #   - "traefik.http.services.chatwoot_go_minio.loadbalancer.server.port=9000"
 
-  # Job Utilitário para criar buckets automaticamente ao iniciar
+  # ==========================================
+  # Setup Buckets (Auto-run)
+  # ==========================================
   createbuckets:
     image: minio/mc
     depends_on:
@@ -90,17 +125,24 @@ services:
       /usr/bin/mc mb -p myminio/attachments;
       /usr/bin/mc anonymous set public myminio/avatars;
       /usr/bin/mc anonymous set public myminio/attachments;
-      echo 'Buckets created and configured.';
+      echo 'MinIO Buckets Configured';
       exit 0;
       "
     networks:
-      - chatwoot-network
+      - AikaNet
+    deploy:
+      restart_policy:
+        condition: on-failure
 
+# ==========================================
+# Network & Volumes
+# ==========================================
 networks:
-  chatwoot-network:
-    driver: bridge
+  AikaNet:
+    external: true
+    name: AikaNet
 
 volumes:
-  postgres_data:
-  redis_data:
-  minio_data:
+  chatwoot_go_postgres_data:
+  chatwoot_go_redis_data:
+  chatwoot_go_minio_data:
