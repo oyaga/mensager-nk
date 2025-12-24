@@ -1,7 +1,8 @@
 import { create } from 'zustand'
 import { useAuthStore } from './authStore'
 
-const API_URL = 'http://localhost:8080/api/v1'
+// Use relative URL when served from same origin (unified build)
+const API_BASE = `${import.meta.env.VITE_API_URL || ''}/api/v1`
 
 export interface Contact {
   id: string
@@ -66,7 +67,7 @@ export const useContactStore = create<ContactState>((set, get) => ({
       const token = useAuthStore.getState().token
       console.log('Token used:', token ? 'Found' : 'Missing')
       
-      const url = `${API_URL}/contacts?page=${page}&limit=${limit}`
+      const url = `${API_BASE}/contacts?page=${page}&limit=${limit}`
       console.log('Fetch URL:', url)
 
       const response = await fetch(url, {
@@ -114,7 +115,7 @@ export const useContactStore = create<ContactState>((set, get) => ({
     set({ isLoading: true, error: null })
     try {
       const token = useAuthStore.getState().token
-      const response = await fetch(`${API_URL}/contacts`, {
+      const response = await fetch(`${API_BASE}/contacts`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -156,7 +157,7 @@ export const useContactStore = create<ContactState>((set, get) => ({
     set({ isLoading: true, error: null })
     try {
       const token = useAuthStore.getState().token
-      const response = await fetch(`${API_URL}/contacts/${id}`, {
+      const response = await fetch(`${API_BASE}/contacts/${id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -185,7 +186,7 @@ export const useContactStore = create<ContactState>((set, get) => ({
     set({ isLoading: true, error: null })
     try {
       const token = useAuthStore.getState().token
-      const response = await fetch(`${API_URL}/contacts/${id}`, {
+      const response = await fetch(`${API_BASE}/contacts/${id}`, {
         method: 'DELETE',
         headers: {
           Authorization: `Bearer ${token}`,

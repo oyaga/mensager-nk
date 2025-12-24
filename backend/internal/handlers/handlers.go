@@ -393,6 +393,7 @@ func (h *ContactHandler) List(c *gin.Context) {
 
 func (h *ContactHandler) Create(c *gin.Context) {
 	accountIDStr := c.GetString("account_id")
+	log.Printf(">>> ContactHandler.Create: Received request. AccountID=%s", accountIDStr)
 	accountID, _ := uuid.Parse(accountIDStr)
 
 	var input models.Contact

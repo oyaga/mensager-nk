@@ -6,8 +6,6 @@ services:
   # ==========================================
   app:
     image: oyaga/chatwoot-go:latest
-    container_name: chatwoot-go-app
-    restart: unless-stopped
     networks:
       - AikaNet
     environment:
@@ -32,6 +30,7 @@ services:
       - FRONTEND_URL=https://ct.aikanakamura.com
       - JWT_SECRET=c5f444c7b6fa1ec3b1bcfd1949c67170
       - GIN_MODE=release
+      - PORT=8080
 
     deploy:
       mode: replicated
@@ -39,26 +38,32 @@ services:
       placement:
         constraints:
           - node.role == manager
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+      update_config:
+        parallelism: 1
+        delay: 10s
+        failure_action: rollback
+        order: start-first
       labels:
-        - "traefik.enable=true"
-        - "traefik.http.routers.chatwoot_go.rule=Host(`ct.aikanakamura.com`)"
-        - "traefik.http.routers.chatwoot_go.entrypoints=websecure"
-        - "traefik.http.routers.chatwoot_go.tls.certresolver=letsencryptresolver"
-        - "traefik.http.routers.chatwoot_go.service=chatwoot_go"
-        - "traefik.http.services.chatwoot_go.loadbalancer.server.port=8080"
-        - "traefik.http.services.chatwoot_go.loadbalancer.passHostHeader=true"
-
-    depends_on:
-      - chatwoot-db
-      - chatwoot-cache
+        # Traefik Labels - Padrão Evolution API (TESTADO E FUNCIONANDO)
+        - traefik.enable=1
+        - traefik.http.routers.chatwoot_go.rule=Host(`ct.aikanakamura.com`)
+        - traefik.http.routers.chatwoot_go.entrypoints=websecure
+        - traefik.http.routers.chatwoot_go.priority=1
+        - traefik.http.routers.chatwoot_go.tls.certresolver=letsencryptresolver
+        - traefik.http.routers.chatwoot_go.service=chatwoot_go
+        - traefik.http.services.chatwoot_go.loadbalancer.server.port=8080
+        - traefik.http.services.chatwoot_go.loadbalancer.passHostHeader=true
 
   # ==========================================
   # PostgreSQL (Nome do Serviço Único)
   # ==========================================
   chatwoot-db:
     image: postgres:16-alpine
-    container_name: chatwoot-go-postgres-container
-    restart: unless-stopped
     environment:
       - POSTGRES_USER=chatwoot
       - POSTGRES_PASSWORD=chatwoot123
@@ -68,25 +73,35 @@ services:
     networks:
       - AikaNet
     deploy:
+      mode: replicated
+      replicas: 1
       placement:
         constraints:
           - node.role == manager
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
 
   # ==========================================
   # Redis (Nome do Serviço Único)
   # ==========================================
   chatwoot-cache:
     image: redis:7-alpine
-    container_name: chatwoot-go-redis-container
-    restart: unless-stopped
     volumes:
       - chatwoot_go_redis_data:/data
     networks:
       - AikaNet
     deploy:
+      mode: replicated
+      replicas: 1
       placement:
         constraints:
           - node.role == manager
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
 
   # ==========================================
   # Setup Buckets

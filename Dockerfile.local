@@ -35,6 +35,7 @@ COPY --from=backend-builder /app/main .
 
 # Copy pre-built frontend dist
 COPY frontend/dist ./dist
+RUN echo "--- Checking dist folder content ---" && ls -R dist && echo "------------------------------------"
 
 # Expose port
 EXPOSE 8080
