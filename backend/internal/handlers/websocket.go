@@ -4,9 +4,11 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"github.com/nakamura/chatwoot-go/internal/config"
+	"github.com/nakamura/chatwoot-go/internal/middleware"
 	ws "github.com/nakamura/chatwoot-go/internal/websocket"
 )
 
@@ -29,17 +31,33 @@ func NewWebSocketHandler(hub *ws.Hub, cfg *config.Config) *WebSocketHandler {
 
 // HandleWebSocket upgrades HTTP connection to WebSocket
 func (h *WebSocketHandler) HandleWebSocket(c *gin.Context) {
-	// Get user ID from query params or token
-	userIDStr := c.Query("user_id")
-	if userIDStr == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "user_id required"})
-		return
-	}
+	var userID uuid.UUID
+	var err error
 
-	userID, err := uuid.Parse(userIDStr)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user_id"})
-		return
+	// 1. Try to get token from query param (Standard Chatwoot frontend behavior)
+	tokenStr := c.Query("token")
+	if tokenStr != "" {
+		claims := &middleware.Claims{}
+		token, err := jwt.ParseWithClaims(tokenStr, claims, func(token *jwt.Token) (interface{}, error) {
+			return []byte(h.cfg.JWTSecret), nil
+		})
+		if err != nil || !token.Valid {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
+			return
+		}
+		userID = claims.UserID
+	} else {
+		// 2. Fallback to user_id query param (For dev/testing tools)
+		userIDStr := c.Query("user_id")
+		if userIDStr == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "token or user_id required"})
+			return
+		}
+		userID, err = uuid.Parse(userIDStr)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user_id"})
+			return
+		}
 	}
 
 	// Upgrade connection
